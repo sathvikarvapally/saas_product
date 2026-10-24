@@ -300,3 +300,32 @@ docker compose down
 
 This stops the application while keeping its database volume for the next start.
 The Docker database is separate from local `subledger.db`.
+
+## Assumptions
+
+- SQLite is the supported database, with UTC timestamps and two-decimal monetary
+  values for INR, USD, EUR, and GBP.
+- Subscriptions activate immediately. Cancellation preserves invoices and payment history.
+- Billing cycles are monthly, quarterly, or yearly. Invoice generation is manual;
+  custom billing periods use the full plan price without proration.
+- Payment status is simulated. Provider references are globally unique; duplicate
+  requests return 409 rather than replaying the original response.
+- Ledger entries record billing events rather than a double-entry account balance.
+
+## Limitations
+
+- No real payment gateway, automatic charging, taxes, refunds, frontend, authentication,
+  or RBAC is included in the assignment's base scope.
+- Overdue/void invoice states are supported in storage; no scheduler or status-management
+  endpoint assigns those states automatically.
+- Other database engines need separate locking, migration, and ledger-protection verification.
+
+## Submission files
+
+- This README contains setup commands, the API list, assumptions, and limitations.
+- DESIGN.md contains the ERD, service and repository tables, rule ownership, pattern
+  explanation, invoice flow, and payment flow.
+- tests/ contains business-rule tests; run `python -m pytest -q`.
+- Dockerfile and compose.yaml provide container setup; local setup is documented above.
+- Swagger is available at `/docs`; OpenAPI is available at `/openapi.json`.
+- A GitHub submission URL is pending until the local project is uploaded to a repository.

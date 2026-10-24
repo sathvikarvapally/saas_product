@@ -5,7 +5,7 @@
 SubLedger manages plans, customers, subscriptions, invoices, payment attempts,
 and append-only ledger events. This document describes the implemented backend.
 The current implementation contains configuration, database session setup,
-the application skeleton, a health endpoint, all six database models, and an
+the application skeleton, a health endpoint, all six database models, and
 three Alembic migrations. Plans, customers, subscriptions, and invoices have working
 schemas, repositories, services, and endpoints. Invoice generation atomically appends
 ledger events, and customer ledger history is available. Payment recording and
@@ -55,14 +55,18 @@ snapshots taken at generation time. Later plan changes do not change existing in
 
 ## Service and repository responsibilities
 
-| Service | Responsibilities | Repository |
-| --- | --- | --- |
-| PlanService | Validate price, create/list plans, manage activation | PlanRepository |
-| CustomerService | Normalize email, enforce uniqueness, create/list customers | CustomerRepository |
-| SubscriptionService | Check plan/customer, prevent duplicate active subscriptions, cancel | SubscriptionRepository |
-| InvoiceService | Validate subscription, determine billing period, snapshot price, create invoice | InvoiceRepository |
-| PaymentService | Validate payment, record attempt, update invoice totals and status | PaymentAttemptRepository, InvoiceRepository |
-| LedgerService | Append traceable billing events within caller transaction | LedgerRepository |
+| Service | Responsibilities | Should not do | Repository |
+| --- | --- | --- | --- |
+| PlanService | Create/list/update plans from validated input; own catalog write transactions | Generate invoices, record payments, handle HTTP responses, or execute SQL directly | PlanRepository |
+| CustomerService | Create/list/fetch customers; enforce email uniqueness; own customer write transactions | Normalize raw requests, manage subscriptions/payments, handle HTTP responses, or execute SQL directly | CustomerRepository |
+| SubscriptionService | Check customer/active plan; prevent duplicate active subscriptions; initialize periods; cancel | Generate invoices, charge payments, or delete billing history | SubscriptionRepository, CustomerRepository, PlanRepository |
+| InvoiceService | Validate subscription; calculate periods/due date; snapshot price; create invoice and ledger event atomically | Record payment attempts, contact gateways, or mutate prior ledger entries | InvoiceRepository, SubscriptionRepository, PlanRepository |
+| PaymentService | Validate invoice/currency/balance/reference; record attempts; update totals/status; append ledger event atomically | Change plan prices, regenerate invoices, contact a real gateway, or commit ledger changes separately | PaymentAttemptRepository, InvoiceRepository |
+| LedgerService | Append traceable events within caller transaction; fetch customer history | Update/delete events, independently commit a caller's transaction, or calculate billing charges | LedgerRepository, CustomerRepository |
+
+Plan schemas validate positive prices before services receive input, with a database
+check as an additional safeguard. Customer schemas validate and normalize email;
+CustomerService owns uniqueness checks and conflict handling.
 
 Repositories expose get/create and relevant list/filter operations. Updates are
 limited to domain operations. LedgerRepository exposes append/list only.
